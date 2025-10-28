@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MTG Collection Tracker</title>
+<style>
+  body { font-family: Arial, sans-serif; background: #f0f0f0; margin: 0; padding: 0; }
+  header { background: #222; color: white; padding: 1em; text-align: center; }
+  nav { display: flex; justify-content: center; background: #444; }
+  nav button { margin: 0.2em; padding: 0.5em 1em; color: white; background: #666; border: none; cursor: pointer; }
+  nav button.active { background: #888; }
+  .tab-content { display: none; padding: 1em; }
+  .card-grid { display: flex; flex-wrap: wrap; gap: 1em; margin-top: 1em; }
+  .card { border: 1px solid #ccc; padding: 0.5em; background: white; text-align: center; width: 150px; }
+  .progress-bar-container { width: 100%; background: #ddd; height: 20px; margin: 0.5em 0; border-radius: 5px; }
+  .progress-bar { height: 100%; background: green; width: 0%; border-radius: 5px; }
+</style>
+</head>
+<body>
+
+<header><h1>MTG Collection Tracker</h1></header>
+
+<nav>
+  <button class="tab-button active" data-tab="cards">Cards</button>
+  <button class="tab-button" data-tab="types">Types</button>
+  <button class="tab-button" data-tab="mana">Mana</button>
+  <button class="tab-button" data-tab="deck-builder">Deck Builder</button>
+  <button class="tab-button" data-tab="wishlist">Wishlist</button>
+  <button class="tab-button" data-tab="collections">Collections</button>
+</nav>
+
+<!-- Cards Tab -->
+<div id="cards" class="tab-content" style="display:block;">
+  <h2>Card Detail Page</h2>
+  <p>Select a card to see details and synergy suggestions.</p>
+  <input type="text" id="card-search" placeholder="Enter card name" />
+  <button id="search-card-button">Search</button>
+  <div id="card-detail"></div>
+  <h3>Synergy Suggestions</h3>
+  <div id="synergy-suggestions" class="card-grid"></div>
+</div>
+
+<!-- Types Tab -->
+<div id="types" class="tab-content">
+  <h2>Cards by Type</h2>
+  <div>
+    <h3>Spells</h3>
+    <select id="spell-type">
+      <option value="">All</option>
+      <option value="Instant">Instant</option>
+      <option value="Sorcery">Sorcery</option>
+    </select>
+    <div id="spell-cards" class="card-grid"></div>
+  </div>
+  <div>
+    <h3>Creatures</h3>
+    <select id="creature-type">
+      <option value="">All</option>
+      <option value="Dragon">Dragon</option>
+      <option value="Cat">Cat</option>
+      <option value="Beast">Beast</option>
+      <option value="Elemental">Elemental</option>
+    </select>
+    <div id="creature-cards" class="card-grid"></div>
+  </div>
+</div>
+
+<!-- Mana Tab -->
+<div id="mana" class="tab-content">
+  <h2>Mana & Lands</h2>
+  <select id="mana-type">
+    <option value="">All</option>
+    <option value="Shock">Shock Lands</option>
+  </select>
+  <div id="mana-cards" class="card-grid"></div>
+</div>
+
+<!-- Deck Builder Tab -->
+<div id="deck-builder" class="tab-content">
+  <h2>Deck Builder</h2>
+  <p>Create decks from your collection.</p>
+</div>
+
+<!-- Wishlist Tab -->
+<div id="wishlist" class="tab-content">
+  <h2>Wishlist</h2>
+  <p>Add cards you want to acquire.</p>
+</div>
+
+<!-- Collections Tab -->
+<div id="collections" class="tab-content">
+  <h2>My Collection</h2>
+  <div id="collection-summary">
+    <p>Total Cards: <span id="total-cards">0</span></p>
+    <p>Cards Owned: <span id="owned-cards">0</span></p>
+    <p>Collection Progress: <span id="collection-progress">0%</span></p>
+    <div class="progress-bar-container"><div id="progress-bar" class="progress-bar"></div></div>
+  </div>
+
+  <div id="collection-filters">
+    <label for="card-number-filter">Filter by Card Number:</label>
+    <input type="number" id="card-number-filter" placeholder="Enter card number" />
+    <button id="filter-button">Filter</button>
+    <button id="clear-filter-button">Clear Filter</button>
+  </div>
+
+  <!-- Secret Lair Section -->
+  <div id="secret-lair-section">
+    <h3>Secret Lair</h3>
+    <label for="secret-lair-variant">Select Variant/Drop:</label>
+    <select id="secret-lair-variant">
+      <option value="all">All Variants</option>
+      <option value="sonic">Sonic the Hedgehog</option>
+      <option value="stranger_things">Stranger Things</option>
+      <option value="final_fantasy">Final Fantasy</option>
+      <option value="spongebob">SpongeBob SquarePants</option>
+      <option value="the_office">The Office</option>
+    </select>
+    <div id="secret-lair-cards" class="card-grid"></div>
+  </div>
+
+  <!-- Collection Goals -->
+  <div id="collection-goals">
+    <h3>Collection Goals</h3>
+    <input type="text" id="goal-name" placeholder="Goal Name" />
+    <input type="text" id="goal-filter" placeholder="Type or Set" />
+    <button id="add-goal-button">Add Goal</button>
+    <ul id="goals-list"></ul>
+  </div>
+</div>
+
+<script>
+// ---------------- Tab Switching ----------------
+const tabButtons = document.querySelectorAll('.tab-button');
+tabButtons.forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-content').forEach(tab => tab.style.display='none');
+    tabButtons.forEach(b => b.classList.remove('active'));
+    document.getElementById(btn.dataset.tab).style.display='block';
+    btn.classList.add('active');
+  });
+});
+
+// ---------------- Collection Data ----------------
+let collection = JSON.parse(localStorage.getItem('myCollection')) || {};
+let goals = JSON.parse(localStorage.getItem('collectionGoals')) || [];
+let allCards = []; // placeholder for real cards
+
+// Example Secret Lair cards
+const secretLairCards = {
+  sonic: [{name:'Sonic 1',id:'sl_sonic_1',image:'https://via.placeholder.com/150'}],
+  stranger_things: [{name:'Stranger 1',id:'sl_stranger_1',image:'https://via.placeholder.com/150'}],
+  final_fantasy: [{name:'FF 1',id:'sl_ff_1',image:'https://via.placeholder.com/150'}],
+  spongebob: [{name:'Sponge 1',id:'sl_sponge_1',image:'https://via.placeholder.com/150'}],
+  the_office: [{name:'Office 1',id:'sl_office_1',image:'https://via.placeholder.com/150'}],
+};
+
+// ---------------- Render Secret Lair ----------------
+function renderSecretLairCards(variant) {
+  const container = document.getElementById('secret-lair-cards');
+  container.innerHTML='';
+  let cards = variant==='all'? Object.values(secretLairCards).flat() : secretLairCards[variant] || [];
+  cards.forEach(card=>{
+    const div=document.createElement('div');
+    div.className='card';
+    const owned=collection[card.id]||false;
+    div.innerHTML=`<img src="${card.image}" alt="${card.name}"/><h5>${card.name}</h5>
+      <button class="toggle-owned">${owned?'Owned':'Mark as Owned'}</button>`;
+    div.querySelector('.toggle-owned').addEventListener('click',()=>{
+      collection[card.id]=!collection[card.id];
+      localStorage.setItem('myCollection',JSON.stringify(collection));
+      div.querySelector('.toggle-owned').textContent=collection[card.id]?'Owned':'Mark as Owned';
+      updateProgress();
+    });
+    container.appendChild(div);
+  });
+}
+
+document.getElementById('secret-lair-variant').addEventListener('change',(e)=>{renderSecretLairCards(e.target.value);});
+
+// ---------------- Collection Progress ----------------
+function updateProgress(){
+  const total=Object.keys(collection).length;
+  const owned=Object.values(collection).filter(Boolean).length;
+  const percent=total?Math.round((owned/total)*100):0;
+  document.getElementById('total-cards').textContent=total;
+  document.getElementById('owned-cards').textContent=owned;
+  document.getElementById('collection-progress').textContent=percent+'%';
+  document.getElementById('progress-bar').style.width=percent+'%';
+  renderGoals();
+}
+
+// ---------------- Goals ----------------
+function renderGoals(){
+  const list=document.getElementById('goals-list');
+  list.innerHTML='';
+  goals.forEach((goal,i)=>{
+    let target=[];
+    if(goal.filter.toLowerCase()==='secret lair') target=Object.values(secretLairCards).flat();
+    const ownedCount=target.filter(c=>collection[c.id]).length;
+    const percent=target.length?Math.round((ownedCount/target.length)*100):0;
+    const li=document.createElement('li');
+    li.textContent=`${goal.name}: ${percent}% complete`;
+    const remove=document.createElement('button'); remove.textContent='Remove';
+    remove.addEventListener('click',()=>{goals.splice(i,1);localStorage.setItem('collectionGoals',JSON.stringify(goals));renderGoals();});
+    li.appendChild(remove);
+    list.appendChild(li);
+  });
+}
+
+document.getElementById('add-goal-button').addEventListener('click',()=>{
+  const name=document.getElementById('goal-name').value;
+  const filter=document.getElementById('goal-filter').value;
+  if(name && filter){goals.push({name,filter}); localStorage.setItem('collectionGoals',JSON.stringify(goals));renderGoals();}
+});
+
+// ---------------- Initial Render ----------------
+renderSecretLairCards('all');
+updateProgress();
+
+</script>
+
+</body>
+</html>
